@@ -29,26 +29,30 @@ ios/
 *.mobileprovision
 *.pem
 
-# ----------------------------
+#Node.js & Firebase functions
+/functions/node_modules
+/functions/lib
+/functions/package-lock.json
+
+#Environment variables
+.env
+.env.*
+
+#Expo web builds
+dist/
+web-build/
+
+# ✅ General
+.DS_Store
+*.log
+
 # macOS / System Files
-# ----------------------------
 .DS_Store
 
-# ----------------------------
-# Local Env Files
-# ----------------------------
-.env
-.env.local
-.env.*.local
-
-# ----------------------------
 # Firebase (optional)
-# ----------------------------
-firebaseConfig.ts
+firebaseConfig.js
 
-# ----------------------------
-# JetBrains IDE (WebStorm, IntelliJ, etc.)
-# ----------------------------
+# JetBrains 
 .idea/
 *.iml
 /shelf/
@@ -57,10 +61,8 @@ firebaseConfig.ts
 /contentModel.xml
 /projectSettingsUpdater.xml
 /httpRequests/
-/dataSources/
+/dataSources/x
 /dataSources.local.xml
 
-# ----------------------------
 # TypeScript
-# ----------------------------
 *.tsbuildinfo
