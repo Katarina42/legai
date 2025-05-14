@@ -9,38 +9,78 @@ import {
     StyleSheet,
     KeyboardAvoidingView,
     Platform,
-    Linking
+    Alert,
+    ActivityIndicator
 } from 'react-native'
 import { getLegalAdvice } from '../services/AiService'
+import axios from 'axios'
 
 export default function ChatScreen() {
     const [input, setInput] = useState('')
     const [chat, setChat] = useState([])
     const [loading, setLoading] = useState(false)
+    const [showContactForm, setShowContactForm] = useState(false)
+    const [userMessage, setUserMessage] = useState('')
+    const [lastQuestion, setLastQuestion] = useState('')
+    const [lastAnswer, setLastAnswer] = useState('')
+    const [sending, setSending] = useState(false)
 
     const handleSend = async () => {
         if (!input.trim()) return
         setLoading(true)
+        setShowContactForm(false)
 
         try {
-            const answer = await getLegalAdvice(input)
-            setChat(prev => [...prev, { role: 'user', text: input }, { role: 'ai', text: answer }])
+            const { answer, offerContact } = await getLegalAdvice(input)
+
+            setChat(prev => [
+                ...prev,
+                { role: 'user', text: input },
+                { role: 'ai', text: answer }
+            ])
+
+            setLastQuestion(input)
+            setLastAnswer(answer)
+
+            if (offerContact) setShowContactForm(true)
         } catch (error) {
             console.error('OpenAI error:', error)
-            setChat(prev => [...prev, { role: 'ai', text: '⚠️ Došlo je do greške. Pokušajte ponovo kasnije.' }])
+            setChat(prev => [...prev, {
+                role: 'ai',
+                text: '⚠️ Došlo je do greške. Pokušajte ponovo kasnije.'
+            }])
         } finally {
             setInput('')
             setLoading(false)
         }
     }
 
+    const handleSendToLawyer = async () => {
+        if (!userMessage.trim()) {
+            Alert.alert('Molimo unesite poruku za pravnu službu.')
+            return
+        }
 
-    const contactLawyer = () => {
-        const subject = encodeURIComponent('Pitanje za pravnika')
-        const body = encodeURIComponent('Poštovani,\n\nImam pitanje u vezi sa sledećom pravnom situacijom:\n\n...\n\nHvala unapred.')
-        const email = 'katarinarankovic42@gmail.com' // replace with your NGO email
-        const mailtoUrl = `mailto:${email}?subject=${subject}&body=${body}`
-        Linking.openURL(mailtoUrl)
+        setSending(true)
+
+        try {
+            await axios.post(
+                'https://us-central1-YOUR_PROJECT_ID.cloudfunctions.net/sendToLawyer',
+                {
+                    question: lastQuestion,
+                    aiAnswer: lastAnswer,
+                    userMessage
+                }
+            )
+
+            Alert.alert('Poruka poslata pravnoj službi.')
+            setUserMessage('')
+            setShowContactForm(false)
+        } catch (err) {
+            Alert.alert('Greška pri slanju poruke.')
+        }
+
+        setSending(false)
     }
 
     return (
@@ -52,38 +92,48 @@ export default function ChatScreen() {
             <ScrollView style={styles.chatArea} contentContainerStyle={{ paddingBottom: 20 }}>
                 {chat.map((item, index) => (
                     <View key={index} style={{ marginBottom: 8 }}>
-                        <Text
-                            style={[
-                                styles.senderLabel,
-                                item.role === 'user' ? styles.userLabel : styles.aiLabel
-                            ]}
-                        >
-                            {item.role === 'user' ? 'You' : 'LegalAI'}
+                        <Text style={[
+                            styles.senderLabel,
+                            item.role === 'user' ? styles.userLabel : styles.aiLabel
+                        ]}>
+                            {item.role === 'user' ? 'Vi' : 'LegalAI'}
                         </Text>
-                        <View
-                            style={[
-                                styles.bubble,
-                                item.role === 'user' ? styles.userBubble : styles.aiBubble
-                            ]}
-                        >
+                        <View style={[
+                            styles.bubble,
+                            item.role === 'user' ? styles.userBubble : styles.aiBubble
+                        ]}>
                             <Markdown style={markdownStyles}>{item.text}</Markdown>
                         </View>
                     </View>
                 ))}
+
+                {showContactForm && (
+                    <View style={styles.contactForm}>
+                        <Text style={styles.contactPrompt}>
+                            Ovaj slučaj može zahtevati dodatnu podršku. Ako želite da se obratite pravnoj službi, unesite dodatnu poruku:
+                        </Text>
+                        <TextInput
+                            style={styles.contactInput}
+                            placeholder="Unesite poruku za pravnika"
+                            value={userMessage}
+                            onChangeText={setUserMessage}
+                            multiline
+                        />
+                        {sending
+                            ? <ActivityIndicator size="small" color="#1e88e5" style={{ marginTop: 10 }} />
+                            : <Button title="Pošalji pravniku" onPress={handleSendToLawyer} />}
+                    </View>
+                )}
             </ScrollView>
 
             <View style={styles.inputArea}>
                 <TextInput
                     style={styles.input}
-                    placeholder="Type your legal question"
+                    placeholder="Unesite pravno pitanje"
                     value={input}
                     onChangeText={setInput}
                 />
-                <Button title={loading ? '...' : 'Send'} onPress={handleSend} disabled={loading} />
-            </View>
-
-            <View style={styles.ngoButtonWrapper}>
-                <Button title="Pošalji pitanje pravniku" onPress={contactLawyer} />
+                <Button title={loading ? '...' : 'Pošalji'} onPress={handleSend} disabled={loading} />
             </View>
         </KeyboardAvoidingView>
     )
@@ -114,18 +164,15 @@ const styles = StyleSheet.create({
     userBubble: {
         backgroundColor: '#d1e7dd',
         alignSelf: 'flex-end',
-        borderTopRightRadius: 0,
-        borderBottomRightRadius: 0
+        borderTopRightRadius: 0
     },
     aiBubble: {
         backgroundColor: '#fff',
         alignSelf: 'flex-start',
         borderTopLeftRadius: 0,
-        borderBottomLeftRadius: 0,
         borderColor: '#ccc',
         borderWidth: 1
     },
-
     inputArea: {
         flexDirection: 'row',
         padding: 10,
@@ -143,36 +190,37 @@ const styles = StyleSheet.create({
         paddingHorizontal: 12,
         height: 40
     },
-
-    ngoButtonWrapper: {
+    contactForm: {
+        marginTop: 16,
+        padding: 12,
+        backgroundColor: '#fff7ea',
+        borderRadius: 8,
+        borderColor: '#ffc107',
+        borderWidth: 1
+    },
+    contactPrompt: {
+        marginBottom: 8,
+        color: '#444',
+        fontSize: 15
+    },
+    contactInput: {
+        borderColor: '#ccc',
+        borderWidth: 1,
+        borderRadius: 6,
         padding: 10,
-        borderTopWidth: 1,
-        borderColor: '#eee',
-        backgroundColor: '#f9f9f9'
+        minHeight: 60,
+        marginBottom: 10,
+        backgroundColor: '#fff'
     }
 })
 
 const markdownStyles = {
-    body: {
-        fontSize: 16,
-        color: '#333'
-    },
-    strong: {
-        fontWeight: 'bold',
-        color: '#000'
-    },
-    em: {
-        fontStyle: 'italic'
-    },
-    paragraph: {
-        marginBottom: 8
-    },
-    bullet_list: {
-        paddingLeft: 16
-    },
-    ordered_list: {
-        paddingLeft: 16
-    },
+    body: { fontSize: 16, color: '#333' },
+    strong: { fontWeight: 'bold', color: '#000' },
+    em: { fontStyle: 'italic' },
+    paragraph: { marginBottom: 8 },
+    bullet_list: { paddingLeft: 16 },
+    ordered_list: { paddingLeft: 16 },
     listItem: {
         flexDirection: 'row',
         justifyContent: 'flex-start',

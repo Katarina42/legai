@@ -66,3 +66,52 @@ firebaseConfig.js
 
 # TypeScript
 *.tsbuildinfo
+
+# dependencies
+.pnp
+.pnp.js
+
+# testing
+/coverage
+
+# production
+/build
+/dist
+.firebase/
+
+# misc
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.runtimeconfig.json
+
+# debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+firebase-debug.log*
+ui-debug.log*
+
+# expo
+.expo/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Firebase
+.firebase/
+firebase-debug.log
+firestore-debug.log
+database-debug.log
+ui-debug.log
